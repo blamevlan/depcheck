@@ -1,30 +1,30 @@
 # depcheck
 
-> "What happens if I remove this package?"
+Ever wondered what actually happens when you remove a package? Not just "it gets uninstalled" — but what else goes with it, what breaks, and whether it's safe?
 
-`depcheck` answers that question safely on Fedora/RHEL systems — without touching anything.
+`depcheck` runs the simulation for you and gives you a clear answer before you touch anything.
 
 ```
-depcheck git
-depcheck spotify
+depcheck git curl spotify
 ```
 
-## What it does
+## How it works
 
-- Checks if the package is installed via **dnf** or **Flatpak**
-- Shows which installed packages depend on it
-- Simulates `dnf remove` and lists everything that would be pulled along
-- Flags system-critical packages (kernel, systemd, glibc, bash, ...)
-- Gives a clear risk level: **SAFE**, **CAUTION**, or **DANGER**
+Give it one or more package names and it will:
 
-Nothing is ever removed. All checks are read-only.
+- Check whether each package is actually installed (via dnf or Flatpak)
+- Show which other installed packages depend on it
+- Simulate the removal with `dnf remove --assumeno` and list everything that would be pulled along
+- Warn you if anything critical would be affected — kernel, systemd, glibc, bash, and friends
+- Give you a verdict: **SAFE**, **CAUTION**, or **DANGER**
 
-## Flatpak support
+Nothing is ever removed. Every check is completely read-only.
 
-Flatpak apps like Spotify, GIMP or Bottles are detected automatically.  
-Since Flatpaks run in a sandbox and have no system-level dependencies, they are always **safe to remove** — no other packages depend on them.
+## Flatpak
 
-> Note: apt (Debian/Ubuntu) and pacman (Arch) are not supported yet.
+Flatpak apps are detected automatically. Since they run in a sandbox with no ties to the system package tree, they're always safe to remove without side effects — depcheck will tell you that too.
+
+> apt (Debian/Ubuntu) and pacman (Arch) are not supported yet.
 
 ## Install
 
@@ -32,26 +32,24 @@ Since Flatpaks run in a sandbox and have no system-level dependencies, they are 
 curl -fsSL https://raw.githubusercontent.com/blamevlan/depcheck/main/install.sh | bash
 ```
 
-Requires Python 3. `rich` is installed automatically if missing (via dnf or pip).
+Requires Python 3. The `rich` library is installed automatically if it's missing.
 
 ## Usage
 
 ```bash
-depcheck <package>
+depcheck <package> [package ...]
 ```
-
-Examples:
 
 ```bash
 depcheck curl
 depcheck git
+depcheck git curl nginx
 depcheck spotify
-depcheck bash
 ```
 
 ## Requirements
 
-- Fedora / RHEL (uses `dnf`)
+- Fedora or RHEL (uses `dnf`)
 - Python 3
-- [rich](https://github.com/Textualize/rich) (auto-installed)
-- `flatpak` (optional, for Flatpak detection)
+- [rich](https://github.com/Textualize/rich) — installed automatically
+- `flatpak` — optional, only needed for Flatpak detection

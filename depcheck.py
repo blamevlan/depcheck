@@ -313,38 +313,38 @@ def main():
         prog="depcheck",
         description='Answer "What happens if I remove this package?" safely.',
     )
-    parser.add_argument("package", help="Package name to check (e.g. nginx, curl)")
+    parser.add_argument("package", nargs="+", help="Package name(s) to check (e.g. nginx curl git)")
     args = parser.parse_args()
-    package = args.package
 
-    print_header(package)
+    for package in args.package:
+        print_header(package)
 
-    # 1. Check installed (DNF first, then Flatpak)
-    if not check_installed(package):
-        if flatpak_available():
-            flatpak_info = check_flatpak(package)
-            if flatpak_info:
-                print_flatpak_result(flatpak_info, package)
-                sys.exit(0)
-        console.print(f"  [red]✗[/] [bold]{package}[/] is not installed. Nothing to check.\n")
-        sys.exit(0)
+        # 1. Check installed (DNF first, then Flatpak)
+        if not check_installed(package):
+            if flatpak_available():
+                flatpak_info = check_flatpak(package)
+                if flatpak_info:
+                    print_flatpak_result(flatpak_info, package)
+                    continue
+            console.print(f"  [red]✗[/] [bold]{package}[/] is not installed. Nothing to check.\n")
+            continue
 
-    console.print(f"  [green]✓[/] [bold]{package}[/] is installed.\n")
+        console.print(f"  [green]✓[/] [bold]{package}[/] is installed.\n")
 
-    # 2. Reverse dependencies
-    console.print("  [bold]Checking reverse dependencies...[/]")
-    rdeps = get_reverse_deps(package)
-    print_reverse_deps(rdeps, package)
+        # 2. Reverse dependencies
+        console.print("  [bold]Checking reverse dependencies...[/]")
+        rdeps = get_reverse_deps(package)
+        print_reverse_deps(rdeps, package)
 
-    # 3. Simulate removal
-    console.print("  [bold]Simulating removal...[/]")
-    would_remove, sim_errors = simulate_removal(package)
-    print_simulation(would_remove, sim_errors, package)
+        # 3. Simulate removal
+        console.print("  [bold]Simulating removal...[/]")
+        would_remove, sim_errors = simulate_removal(package)
+        print_simulation(would_remove, sim_errors, package)
 
-    # 4. Risk + verdict
-    level = risk_level(rdeps, would_remove, sim_errors)
-    print_risk(level)
-    print_verdict(level, package)
+        # 4. Risk + verdict
+        level = risk_level(rdeps, would_remove, sim_errors)
+        print_risk(level)
+        print_verdict(level, package)
 
 
 if __name__ == "__main__":
