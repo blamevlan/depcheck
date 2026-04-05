@@ -64,6 +64,76 @@ def pkg_name_only(full):
         name_parts.append(p)
     return "-".join(name_parts) if name_parts else full.split("-")[0]
 
+# ── Flatpak ───────────────────────────────────────────────────────────────────
+
+def flatpak_available():
+    try:
+        subprocess.run(["flatpak", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def check_flatpak(package):
+    """Return flatpak info dict or None if not installed as flatpak."""
+    code, out, _ = run(["flatpak", "list", "--columns=name,application,version,origin"])
+    for line in out.splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            name, app_id = parts[0].strip(), parts[1].strip()
+            if package.lower() in name.lower() or package.lower() in app_id.lower():
+                version = parts[2].strip() if len(parts) > 2 else "unknown"
+                origin  = parts[3].strip() if len(parts) > 3 else "unknown"
+                return {"name": name, "app_id": app_id, "version": version, "origin": origin}
+    return None
+
+
+def simulate_flatpak_removal(app_id):
+    """Returns list of refs that would be removed."""
+    code, out, err = run(["flatpak", "remove", "--dry-run", "--noninteractive", app_id])
+    combined = out + err
+    would_remove = []
+    for line in combined.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("flatpak") or not stripped:
+            continue
+        if any(kw in stripped.lower() for kw in ("uninstall:", "remove")):
+            continue
+        parts = stripped.split()
+        if parts and "/" in parts[0]:
+            would_remove.append(parts[0])
+    return would_remove
+
+
+def print_flatpak_result(info, package):
+    console.print(f"  [green]✓[/] [bold]{info['name']}[/] is installed as a [bold cyan]Flatpak[/].\n")
+    console.print(f"    App ID:  [dim]{info['app_id']}[/]")
+    console.print(f"    Version: [dim]{info['version']}[/]")
+    console.print(f"    Origin:  [dim]{info['origin']}[/]")
+    console.print()
+    console.print("  [bold]Simulating removal...[/]")
+    would_remove = simulate_flatpak_removal(info["app_id"])
+    if would_remove:
+        table = Table(
+            title="flatpak refs that would be removed",
+            box=box.SIMPLE,
+            title_style="bold",
+            show_header=False,
+        )
+        table.add_column("Ref", style="white")
+        for ref in would_remove:
+            table.add_row(ref)
+        console.print(table)
+    else:
+        console.print(f"  [green]✓[/] Only [cyan]{info['app_id']}[/] would be removed.\n")
+    console.print()
+    console.print(Panel(
+        f"[green]Safe to remove.[/] Flatpaks are sandboxed and isolated — "
+        f"removing [cyan]{info['name']}[/] will not affect system packages.",
+        border_style="green",
+    ))
+    console.print()
+
 # ── Core checks ───────────────────────────────────────────────────────────────
 
 def check_installed(package):
@@ -249,8 +319,13 @@ def main():
 
     print_header(package)
 
-    # 1. Check installed
+    # 1. Check installed (DNF first, then Flatpak)
     if not check_installed(package):
+        if flatpak_available():
+            flatpak_info = check_flatpak(package)
+            if flatpak_info:
+                print_flatpak_result(flatpak_info, package)
+                sys.exit(0)
         console.print(f"  [red]✗[/] [bold]{package}[/] is not installed. Nothing to check.\n")
         sys.exit(0)
 
