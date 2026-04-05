@@ -172,7 +172,7 @@ def simulate_removal(package):
         stripped = line.strip()
 
         # Section headers that introduce package lists
-        if stripped.lower() in ("removing:", "removing unused dependencies:"):
+        if stripped.lower().startswith("removing"):
             in_pkg_block = True
             continue
 
